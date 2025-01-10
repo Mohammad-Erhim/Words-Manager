@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Word Frequency List Manager</title>
+    <style>
+      :root {
+        --primary-color: #2da82d;
+        --background-color: #f5f5f5;
+        --text-color: #333;
+        --border-color: #ccc;
+        --padding: 20px;
+        --font-family: "Arial", sans-serif;
+      }
+
+      ::selection {
+        background-color: var(--primary-color);
+        color: white;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: var(--font-family);
+      }
+
+      body {
+        background-color: var(--background-color);
+        color: var(--text-color);
+        padding: var(--padding);
+      }
+
+      h1 {
+        text-align: center;
+        margin-bottom: var(--padding);
+        font-size: 1.8rem;
+      }
+
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+        padding: var(--padding);
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      }
+
+      .input {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid var(--border-color);
+        border-radius: 4px;
+        font-size: 1rem;
+      }
+
+      #generateBtn {
+        width: 100%;
+        padding: 12px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 1rem;
+        font-weight: bold;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+
+      #generateBtn:hover {
+        background-color: #248f24;
+      }
+
+      #outPut {
+        border: 1px solid var(--border-color);
+        padding: var(--padding);
+        margin-top: var(--padding);
+        border-radius: 4px;
+        background-color: white;
+      }
+
+      .counters {
+        display: flex;
+        justify-content: space-between;
+        margin-top: var(--padding);
+        font-size: 0.9rem;
+        color: #666;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .favorite-btn {
+        background-color: #ffcc00;
+        border: none;
+        padding: 5px 10px;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 10px;
+      }
+
+      .favorite-btn.remove {
+        background-color: #ff6666;
+        color: white;
+      }
+
+      .tab {
+        display: flex;
+        justify-content: center;
+        margin-bottom: var(--padding);
+      }
+
+      .tab button {
+        padding: 10px 20px;
+        border: none;
+        background-color: #ddd;
+        cursor: pointer;
+        border-radius: 4px;
+        margin: 0 5px;
+      }
+
+      .tab button.active {
+        background-color: var(--primary-color);
+        color: white;
+      }
+
+      .data-manager {
+        display: none;
+      }
+
+      .data-manager button {
+        padding: 10px 20px;
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .data-manager button:hover {
+        background-color: #248f24;
+      }
+
+      .file-input {
+        margin-bottom: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Word Frequency List Manager</h1>
+    <div class="tab">
+      <button onclick="showTab('main')" class="active">Main</button>
+      <button onclick="showTab('dataManager')">Data Manager</button>
+    </div>
+
+    <div id="main" class="container">
+      <label for="outputOrderInput">
+        Output Order: <span>(w=word, e=example, d=definition)</span>
+      </label>
+      <input id="outputOrderInput" class="input" type="text" value="w e d" />
+
+      <label for="fromInput">From:</label>
+      <input id="fromInput" class="input" type="number" value="1" />
+
+      <label for="toInput">To:</label>
+      <input id="toInput" class="input" type="number" value="5" />
+
+      <label>
+        <input type="checkbox" id="showFavoritesOnly" /> Show Favorites Only
+      </label>
+      <br />
+      <label>
+        <input type="checkbox" id="hideFavoriteButtons" /> Hide Favorites
+        Buttons
+      </label>
+      <button id="generateBtn" type="button">Generate</button>
+
+      <div class="counters">
+        <span id="wordsCount">Words: 0</span>
+        <span id="defCount">Definitions: 0</span>
+        <span id="exampleCount">Examples: 0</span>
+        <span id="favoritesCount">Favorites: 0</span>
+      </div>
+
+      <div id="outPut" class="hidden"></div>
+    </div>
+
+    <div id="dataManager" class="container data-manager">
+      <h2>Data Manager</h2>
+      <input type="file" id="importFile" class="file-input" accept=".txt" />
+      <button onclick="exportData()">Export Data</button>
+    </div>
+
+    <script>
+      let words = ``;
+      let chatgptResults = ``;
+      let outPutData = [];
+      let favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+
+      const outPutDiv = document.getElementById("outPut");
+      const generateBtn = document.getElementById("generateBtn");
+      const showFavoritesOnly = document.getElementById("showFavoritesOnly");
+      const hideFavoriteButtons = document.getElementById(
+        "hideFavoriteButtons"
+      );
+
+      const importFileInput = document.getElementById("importFile");
+
+      // Load data from local storage on page load
+      window.addEventListener("load", () => {
+        words =
+          localStorage.getItem("words") ||
+          "\n1 the a\n2 be v\n3 and c\n4 of i\n5 a a\n6 in i\n7 to t\n8 have v\n9 to i\n10 it p\n11 I p\n12 that c\n13 for i\n14 you p\n15 he p\n16 with i\n17 on i\n18 do v\n19 say v\n20 this d\n21 they p\n22 at i\n23 but c\n24 we p\n25 his a\n26 from i\n27 that d\n28 not x\n29 n't x\n30 by i\n31 she p\n32 or c\n33 as c\n34 what d\n35 go v\n36 their a\n37 can v\n38 who p\n39 get v\n40 if c\n41 would v\n42 her a\n43 all d\n44 my a\n45 make v\n46 about i\n47 know v\n48 will v\n49 as i\n50 up r\n51 one m\n52 time n\n53 there e\n54 year n\n55 so r\n56 think v\n57 when c\n58 which d\n59 them p\n60 some d\n61 me p\n62 people n\n63 take v\n64 out r\n65 into i\n66 just r\n67 see v\n68 him p\n69 your a\n70 come v\n71 could v\n72 now r\n73 than c\n74 like i\n75 other j\n76 how r\n77 then r\n78 its a\n79 our a\n80 two m\n81 more r\n82 these d\n83 want v\n84 way n\n85 look v\n86 first m\n87 also r\n88 new j\n89 because c\n90 day n\n91 more d\n92 use v\n93 no a\n94 man n\n95 find v\n96 here r\n97 thing n\n98 give v\n99 many d\n100 well r\n101 only r\n102 those d\n103 tell v\n104";
+        chatgptResults =
+          localStorage.getItem("chatgptResults") ||
+          "nHere’s the vocabulary lesson for the words you provided.\n\nThe. The is a word we use to refer to something specific. For example, when I say the dog, I mean a particular dog, not just any dog.\n\nBe. Be is a verb that means to exist or to have a certain state. For example, when I say I am happy, I use be to show my state of being.\n\nAnd. And is a conjunction we use to connect words or sentences. For example, I like apples and oranges means I like both apples and oranges.\n\nOf. Of is a preposition that shows a relationship between things. For example, the color of the sky tells us what color the sky is.\n\nA. A is an article we use to refer to one thing that is not specific. For example, a cat means any cat, not a particular one.\n\nLet me know if you have more words!\n\nYou said:\n6 in i 7 to t 8 have v 9 to i 10 it p\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nIn. In is a preposition that shows location or position inside something. For example, the book is in the bag means the book is inside the bag.\n\nTo. To is a preposition that can indicate direction, place, or purpose. For example, I am going to the store means I am heading in the direction of the store.\n\nHave. Have is a verb that means to own or possess something. For example, I have a car means that I own a car.\n\nTo. To is a preposition that can also indicate a purpose or intention. For example, I went to see a movie means I went with the intention of watching a movie.\n\nIt. It is a pronoun we use to refer to a thing or an idea that has already been mentioned or is known. For example, I found my wallet, and it is in my pocket means that the wallet is what I am referring to.\n\nFeel free to share more words!\n\nYou said:\n11 I p 12 that c 13 for i 14 you p 15 he p\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nI. I is a pronoun used by a speaker to refer to themselves. For example, I love to read means the speaker loves to read.\n\nThat. That is a pronoun and a conjunction used to refer to something specific or to connect clauses. For example, I like that book means the speaker is referring to a specific book.\n\nFor. For is a preposition that shows purpose or reason. For example, I bought this gift for you means the gift is intended for you.\n\nYou. You is a pronoun used to refer to the person or people being spoken to. For example, you are my friend means the speaker is talking to their friend.\n\nHe. He is a pronoun used to refer to a male person or thing. For example, he is a good teacher means the speaker is talking about a specific male teacher.\n\nLet me know if you have more words!\n\nYou said:\n16 with i 17 on i 18 do v 19 say v 20 this d\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nWith. With is a preposition that shows association or connection. For example, I went to the park with my friends means I went together with my friends.\n\nOn. On is a preposition that indicates a position above or in contact with a surface. For example, the book is on the table means the book is resting on the surface of the table.\n\nDo. Do is a verb that means to perform an action. For example, I will do my homework means I will complete my homework.\n\nSay. Say is a verb that means to express something in words. For example, I will say hello means I will speak the word hello.\n\nThis. This is a determiner and a pronoun used to indicate something that is close or specific. For example, this is my favorite shirt means the shirt being referred to is nearby and is the speaker's favorite.\n\nFeel free to provide more words if you need!\n\nYou said:\n21 they p 22 at i 23 but c 24 we p 25 his a\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nThey. They is a pronoun used to refer to a group of people or things. For example, they are going to the movies means a specific group is going to the movies.\n\nAt. At is a preposition that indicates a specific location or time. For example, I will meet you at the cafe means the meeting will happen at that specific place.\n\nBut. But is a conjunction used to connect ideas that contrast or oppose each other. For example, I like coffee but I don’t drink it often means the speaker enjoys coffee but doesn’t consume it frequently.\n\nWe. We is a pronoun used to refer to a group that includes the speaker. For example, we are going to the beach means the speaker is included in the group going to the beach.\n\nHis. His is a possessive pronoun used to show that something belongs to a male person. For example, that is his book means the book belongs to him.\n\nLet me know if you have more words!\n\nYou said:\n26 from i 27 that d 28 not x 29 n't x 30 by i\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nFrom. From is a preposition that indicates the starting point of a movement or the source of something. For example, I am from Canada means Canada is the place where the speaker originates.\n\nThat. That is a determiner and pronoun used to refer to something specific. For example, that is my car means the speaker is pointing out a particular car.\n\nNot. Not is a word used to make a verb or statement negative. For example, I do not like spinach means the speaker dislikes spinach.\n\nN’t. N’t is a contraction of not, used to make verbs negative. For example, can’t means cannot, which means not able to.\n\nBy. By is a preposition that indicates the agent performing an action or the method used. For example, the book was written by an author means the author is the person who wrote the book.\n\nFeel free to share more words if you need!\n\nYou said:\n31 she p 32 or c 33 as c 34 what d 35 go v\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nShe. She is a pronoun used to refer to a female person or thing. For example, she is my sister means the speaker is talking about their sister.\n\nOr. Or is a conjunction used to present choices or alternatives. For example, would you like tea or coffee means the speaker is offering two options to choose from.\n\nAs. As is a conjunction that is used to compare two things or show the role of someone or something. For example, she works as a teacher means she has the role of a teacher.\n\nWhat. What is a determiner and pronoun used to ask questions or to refer to something specific. For example, what is your name means the speaker is asking for the listener's name.\n\nGo. Go is a verb that means to move from one place to another. For example, I will go to the store means the speaker is planning to move to the store.\n\nLet me know if you have more words!\n\nYou said:\n36 their a 37 can v 38 who p 39 get v 40 if c\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nTheir. Their is a possessive pronoun used to show that something belongs to a group of people. For example, that is their house means the house belongs to them.\n\nCan. Can is a verb that means to be able to do something or to have permission. For example, I can swim means the speaker is able to swim.\n\nWho. Who is a pronoun used to refer to a person or people, often in questions or clauses. For example, who is coming to the party means the speaker is asking about the person attending the party.\n\nGet. Get is a verb that means to receive or to obtain something. For example, I will get some food means the speaker plans to obtain food.\n\nIf. If is a conjunction used to introduce a condition. For example, if it rains, we will stay inside means that staying inside depends on whether it rains or not.\n\nFeel free to provide more words if you need!\n\nYou said:\n41 would v 42 her a 43 all d 44 my a 45 make v\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nWould. Would is a verb that is used to express a wish, desire, or a possibility. For example, I would like to travel means the speaker expresses a desire to travel.\n\nHer. Her is a possessive pronoun used to show that something belongs to a female person. For example, that is her book means the book belongs to her.\n\nAll. All is a determiner that means the whole amount or every one of something. For example, all the students passed the test means every student in the group passed.\n\nMy. My is a possessive pronoun used to show that something belongs to the speaker. For example, my car means the car that belongs to me.\n\nMake. Make is a verb that means to create or produce something. For example, I will make dinner means the speaker plans to prepare dinner.\n\nLet me know if you have more words!\n\nYou said:\n46 about i 47 know v 48 will v 49 as i 50 up r\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nAbout. About is a preposition used to indicate the subject of something. For example, I am reading a book about history means the book's subject is history.\n\nKnow. Know is a verb that means to have information or understanding of something. For example, I know the answer means the speaker has the information needed.\n\nWill. Will is a verb used to express future actions or intentions. For example, I will go to the party means the speaker plans to attend the party in the future.\n\nAs. As is a conjunction used to compare two things or indicate the role of someone or something. For example, she sings as a professional means she sings in the role of a professional.\n\nUp. Up is an adverb that indicates movement toward a higher position or location. For example, please stand up means the speaker is asking someone to move from a sitting position to a standing position.\n\nLet me know if you have more words!\n\nYou said:\n51 one m 52 time n 53 there e 54 year n 55 so r\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nOne. One is a number that represents a single unit or thing. For example, I have one apple means the speaker has a single apple.\n\nTime. Time is a noun that refers to the ongoing sequence of events or the measure of duration. For example, what time is it means the speaker is asking for the current hour.\n\nThere. There is an adverb used to indicate a location or existence. For example, the book is over there means the book is in that particular location.\n\nYear. Year is a noun that refers to a period of twelve months. For example, I graduated last year means the speaker completed their studies in the previous year.\n\nSo. So is an adverb used to indicate a result or degree. For example, I was tired, so I went to bed means the speaker was tired, and as a result, they went to bed.\n\nFeel free to share more words if you need!\n\nYou said:\n56 think v 57 when c 58 which d 59 them p 60 some d\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nThink. Think is a verb that means to use your mind to consider or reason about something. For example, I need to think about my plans means the speaker needs to consider their plans.\n\nWhen. When is a conjunction used to ask or talk about time. For example, when is the meeting means the speaker is asking for the time of the meeting.\n\nWhich. Which is a determiner and pronoun used to ask about or specify one or more items from a group. For example, which book do you want means the speaker is asking for a choice among books.\n\nThem. Them is a pronoun used to refer to a group of people or things previously mentioned. For example, I saw them at the park means the speaker is referring to a group they saw.\n\nSome. Some is a determiner used to refer to an unspecified amount or number of something. For example, I would like some water means the speaker is asking for an unspecified amount of water.\n\nLet me know if you have more words!\n\nYou said:\n61 me p 62 people n 63 take v 64 out r 65 into i\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nMe. Me is a pronoun used by a speaker to refer to themselves. For example, please give the book to me means the speaker is asking for the book to be given to them.\n\nPeople. People is a noun that refers to a group of human beings. For example, many people attended the concert means a large number of individuals were present at the concert.\n\nTake. Take is a verb that means to grasp or receive something. For example, I will take the bus means the speaker plans to use the bus for transportation.\n\nOut. Out is an adverb that indicates movement from the inside to the outside. For example, please step out means the speaker is asking someone to move from inside to outside.\n\nInto. Into is a preposition that indicates movement from outside to a point inside. For example, I walked into the room means the speaker moved from outside to the inside of the room.\n\nFeel free to provide more words if you need!\n\nYou said:\n66 just r 67 see v 68 him p 69 your a 70 come v\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nJust. Just is an adverb that means only or simply. For example, I just want to help means the speaker wants to help and nothing more.\n\nSee. See is a verb that means to perceive something with your eyes. For example, I can see the mountains means the speaker is able to visually observe the mountains.\n\nHim. Him is a pronoun used to refer to a male person previously mentioned. For example, I gave the book to him means the speaker gave the book to a specific male.\n\nYour. Your is a possessive pronoun used to show that something belongs to the person being spoken to. For example, is this your coat means the speaker is asking if the coat belongs to the listener.\n\nCome. Come is a verb that means to move toward or approach someone or something. For example, please come here means the speaker is asking someone to move closer to them.\n\nLet me know if you have more words!\n\nYou said:\n71 could v 72 now r 73 than c 74 like i 75 other j\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nCould. Could is a verb used to express possibility or ability in the past. For example, I could swim when I was younger means the speaker had the ability to swim in the past.\n\nNow. Now is an adverb that refers to the current time. For example, I am busy now means the speaker is currently occupied.\n\nThan. Than is a conjunction used to make comparisons between two things. For example, she is taller than her brother means the speaker is comparing the height of the two people.\n\nLike. Like is a preposition used to indicate similarity or preference. For example, I like chocolate means the speaker enjoys chocolate.\n\nOther. Other is an adjective used to refer to something different or additional. For example, I want the other book means the speaker is asking for a different book from the one previously mentioned.\n\nFeel free to share more words if you need!\n\nYou said:\n76 how r 77 then r 78 its a 79 our a 80 two m\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nHow. How is an adverb used to ask about the manner or way something is done. For example, how are you means the speaker is asking about the listener's well-being or condition.\n\nThen. Then is an adverb used to refer to a specific time in the past or future. For example, we will eat dinner then means the speaker is indicating the time when dinner will occur.\n\nIts. Its is a possessive pronoun used to show that something belongs to a thing or animal. For example, the dog wagged its tail means the tail belongs to the dog.\n\nOur. Our is a possessive pronoun used to show that something belongs to the speaker and others. For example, this is our house means the house belongs to the speaker and someone else.\n\nTwo. Two is a number that represents the quantity of two units or items. For example, I have two apples means the speaker possesses a total of two apples.\n\nLet me know if you have more words!\n\nYou said:\n81 more r 82 these d 83 want v 84 way n 85 look v\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nMore. More is an adverb used to indicate a greater amount or degree. For example, I want more water means the speaker desires an additional quantity of water.\n\nThese. These is a determiner used to refer to specific items that are close in distance or time. For example, these shoes are new means the shoes being pointed out are nearby and new.\n\nWant. Want is a verb that means to desire or wish for something. For example, I want a new phone means the speaker wishes to have a new phone.\n\nWay. Way is a noun that refers to a method or manner of doing something. For example, there are many ways to solve this problem means there are several methods to address the problem.\n\nLook. Look is a verb that means to direct your gaze toward something. For example, look at the sky means the speaker is asking someone to direct their attention to the sky.\n\nFeel free to provide more words if you need!\n\nYou said:\n86 first m 87 also r 88 new j 89 because c 90 day n\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nFirst. First is an adjective that refers to the initial item in a sequence. For example, she was the first to arrive means she was the very first person to get there.\n\nAlso. Also is an adverb used to add information or ideas. For example, I like pizza and I also enjoy pasta means the speaker likes both pizza and pasta.\n\nNew. New is an adjective that describes something that has recently been created or is not old. For example, I bought a new car means the car is recently acquired and not previously owned.\n\nBecause. Because is a conjunction used to introduce a reason. For example, I stayed home because it was raining means the speaker's reason for staying home was the rain.\n\nDay. Day is a noun that refers to a period of twenty-four hours. For example, today is a beautiful day means the speaker is talking about the current twenty-four hour period.\n\nLet me know if you have more words!\n\nYou said:\n91 more d 92 use v 93 no a 94 man n 95 find v\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nMore. More is a determiner that refers to a greater amount or additional quantity of something. For example, can I have more cake means the speaker is asking for an extra piece of cake.\n\nUse. Use is a verb that means to employ something for a purpose. For example, I will use my phone to call you means the speaker plans to utilize their phone for making a call.\n\nNo. No is an adjective that means not any or not at all. For example, there is no milk left means that there is not any milk remaining.\n\nMan. Man is a noun that refers to an adult male human being. For example, the man in the blue shirt is my father means the speaker is talking about a specific adult male.\n\nFind. Find is a verb that means to discover or locate something. For example, I need to find my keys means the speaker is looking to locate their keys.\n\nFeel free to share more words if you need!\n\nYou said:\n96 here r 97 thing n 98 give v 99 many d 100 well r\nChatGPT said:\nChatGPT\nHere’s the vocabulary lesson for the next set of words.\n\nHere. Here is an adverb that indicates a specific location or place. For example, please come here means the speaker is asking someone to move to their current location.";
+        favorites = JSON.parse(localStorage.getItem("favorites")) || [];
+      });
+
+      // Save data to local storage
+      const saveToLocalStorage = () => {
+        localStorage.setItem("words", words);
+        localStorage.setItem("chatgptResults", chatgptResults);
+        localStorage.setItem("favorites", JSON.stringify(favorites));
+      };
+
+      // Toggle favorites
+      const toggleFavorite = (word) => {
+        if (favorites.includes(word)) {
+          favorites = favorites.filter((fav) => fav !== word);
+        } else {
+          favorites.push(word);
+        }
+        saveToLocalStorage();
+        generateResults();
+      };
+
+      // Generate results
+      const generateResults = () => {
+        outPutData = [];
+
+        const repeatWordInput = { value: 1 };
+        const repeatDefInput = { value: 1 };
+        const repeatExampleInput = { value: 1 };
+        const outputOrderInput = document.getElementById("outputOrderInput");
+        const fromInput = document.getElementById("fromInput");
+        const toInput = document.getElementById("toInput");
+
+        let wordsObjects = words
+          .trim()
+          .split("\n")
+          .map((ele) => {
+            let [weight, word, type] = ele.split(" ");
+            return { weight, word, type };
+          });
+
+        let chatgptResultLines = chatgptResults.trim().split("\n");
+
+        wordsObjects = wordsObjects.slice(fromInput.value - 1, toInput.value);
+
+        wordsObjects.forEach((wordObject) => {
+          let wordData = chatgptResultLines.find((chatgptResultLine) =>
+            chatgptResultLine
+              .toLowerCase()
+              .startsWith(wordObject.word.toLowerCase() + ".")
+          );
+
+          if (!wordData) return;
+
+          let [def = "", example = ""] = wordData.split(" For example, ");
+          let word = "";
+          [word, def] = def.split(". ");
+
+          example = example.replace(example[0], example[0]?.toUpperCase());
+
+          outPutData.push({
+            ...wordObject,
+            word,
+            def,
+            example,
+          });
+        });
+
+        outPutDiv.innerHTML = "";
+        outPutData.forEach((element) => {
+          if (showFavoritesOnly.checked && !favorites.includes(element.word))
+            return;
+
+          const p = document.createElement("p");
+          p.style.paddingBottom = "20px";
+
+          let { word = "", def = "", example = "" } = element;
+
+          outputOrderInput.value.split(" ").forEach((e) => {
+            let data = null;
+            if (e.toUpperCase() === "W")
+              data = { count: repeatWordInput.value, text: word + "." };
+            if (e.toUpperCase() === "D")
+              data = { count: repeatDefInput.value, text: def };
+            if (e.toUpperCase() === "E")
+              data = { count: repeatExampleInput.value, text: example };
+
+            for (let index = 0; index < data.count; index++) {
+              p.innerHTML += "<br>" + data.text + "<br>";
+            }
+          });
+          if (!hideFavoriteButtons.checked) {
+            const favoriteBtn = document.createElement("button");
+
+            favoriteBtn.className = favorites.includes(element.word)
+              ? "favorite-btn remove"
+              : "favorite-btn";
+            favoriteBtn.textContent = favorites.includes(element.word)
+              ? "Remove from Favorites"
+              : "Add to Favorites";
+            favoriteBtn.onclick = () => toggleFavorite(element.word);
+
+            p.appendChild(favoriteBtn);
+          }
+          outPutDiv.appendChild(p);
+        });
+
+        outPutDiv.classList.remove("hidden");
+
+        const searchData = {
+          wordsCount: outPutData.filter((outPutEle) => outPutEle.word).length,
+          defCount: outPutData.filter((outPutEle) => outPutEle.def).length,
+          exampleCount: outPutData.filter((outPutEle) => outPutEle.example)
+            .length,
+          favoritesCount: outPutData.filter((outPutEle) =>
+            favorites.includes(outPutEle.word)
+          ).length,
+        };
+
+        document.getElementById("wordsCount").textContent =
+          "Words: " + searchData.wordsCount;
+        document.getElementById("defCount").textContent =
+          "Definitions: " + searchData.defCount;
+        document.getElementById("exampleCount").textContent =
+          "Examples: " + searchData.exampleCount;
+        document.getElementById("favoritesCount").textContent =
+          "Favorites: " + searchData.favoritesCount;
+      };
+
+      // Event listeners
+      generateBtn.addEventListener("click", generateResults);
+      showFavoritesOnly.addEventListener("change", generateResults);
+      hideFavoriteButtons.addEventListener("change", generateResults);
+
+      // Data Manager Functions
+      const exportData = () => {
+        const data = {
+          words,
+          chatgptResults,
+          favorites,
+        };
+        const dataString = JSON.stringify(data, null, 2);
+        const blob = new Blob([dataString], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "word-frequency-data.txt";
+        a.click();
+        URL.revokeObjectURL(url);
+      };
+
+      const importData = (file) => {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          try {
+            const data = JSON.parse(event.target.result);
+            words = data.words;
+            chatgptResults = data.chatgptResults;
+            favorites = data.favorites;
+            saveToLocalStorage();
+            alert("Data imported successfully!");
+          } catch (error) {
+            alert("Invalid file format!");
+          }
+        };
+        reader.readAsText(file);
+      };
+
+      // Handle file import
+      importFileInput.addEventListener("change", (event) => {
+        const file = event.target.files[0];
+        if (file) {
+          importData(file);
+        }
+      });
+
+      // Tab Navigation
+      const showTab = (tabName) => {
+        document.querySelectorAll(".container").forEach((tab) => {
+          tab.style.display = "none";
+        });
+        document.getElementById(tabName).style.display = "block";
+
+        document.querySelectorAll(".tab button").forEach((button) => {
+          button.classList.remove("active");
+        });
+        document
+          .querySelector(`.tab button[onclick="showTab('${tabName}')"]`)
+          .classList.add("active");
+      };
+
+      // Default to Main tab
+      showTab("main");
+    </script>
+  </body>
+</html>
